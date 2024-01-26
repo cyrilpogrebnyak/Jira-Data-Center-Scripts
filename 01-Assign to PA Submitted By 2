@@ -1,0 +1,20 @@
+import com.atlassian.jira.component.ComponentAccessor
+
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def submBy2 = customFieldManager.getCustomFieldObjectByName("PA Submitted By 2")
+if (issue.getCustomFieldValue(submBy2)) 
+{
+    def submByValue = issue.getCustomFieldValue(submBy2).getUsername()
+    log.warn(submByValue)
+    if (issue.getCustomFieldValue("PA Submitted By 2 value is: " + submBy2))
+    {
+        def userManager = ComponentAccessor.getUserManager()
+        def user = userManager.getUserByName(submByValue)
+        def groupManager = ComponentAccessor.getGroupManager()
+        if (groupManager.isUserInGroup(user, "Prior Authorization"))
+        {
+            issue.setAssignee(user)
+            log.warn("Assigned the issue to that user")    
+        }
+    }
+}
