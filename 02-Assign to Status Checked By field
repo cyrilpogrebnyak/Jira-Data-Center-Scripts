@@ -1,0 +1,20 @@
+import com.atlassian.jira.component.ComponentAccessor
+
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def statusCheckedBy = customFieldManager.getCustomFieldObjectByName("Status Checked By")
+if (issue.getCustomFieldValue(statusCheckedBy)) 
+{
+    def statusCheckedByValue = issue.getCustomFieldValue(statusCheckedBy).getUsername()
+    log.warn("Current Status Checked By is "+statusCheckedByValue.toString())
+    if (issue.getCustomFieldValue(statusCheckedBy))
+    {
+        def userManager = ComponentAccessor.getUserManager()
+        def user = userManager.getUserByName(statusCheckedByValue)
+        def groupManager = ComponentAccessor.getGroupManager()
+        //if (groupManager.isUserInGroup(user, "Prior Authorization"))
+        //{
+            issue.setAssignee(user)
+            log.warn("Assigned the issue to that user")
+        //}
+    }
+}
