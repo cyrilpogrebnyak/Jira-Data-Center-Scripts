@@ -1,0 +1,14 @@
+import com.atlassian.jira.component.ComponentAccessor
+
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def statusCheckedBy = customFieldManager.getCustomFieldObjectByName("Status Checked By")
+
+def userManager = ComponentAccessor.getUserManager()
+log.warn("Current Assignee is "+issue.getAssignee().toString())
+if (issue.getAssignee())
+{
+issue.set {
+    setCustomFieldValue(statusCheckedBy.fieldName, issue.getAssignee().getUsername())
+    log.warn("Set as Status Checked By field")
+    }
+}
