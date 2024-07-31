@@ -1,4 +1,4 @@
-```ruby
+```Groovy
 import com.atlassian.jira.component.ComponentAccessor
 
 def customFieldManager = ComponentAccessor.getCustomFieldManager()
