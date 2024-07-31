@@ -1,0 +1,11 @@
+import com.atlassian.jira.component.ComponentAccessor
+import java.sql.Timestamp
+
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def dateCf = customFieldManager.getCustomFieldObject("customfield_16801") // Date time fields require a Timestamp
+//def dateCfValue = dateCf.getValue()
+if (issue.getCustomFieldValue(dateCf)==null)
+{
+    log.warn(issue.getCustomFieldValue(dateCf).toString())
+    issue.setCustomFieldValue(dateCf, new Timestamp((new Date()).time))
+}
