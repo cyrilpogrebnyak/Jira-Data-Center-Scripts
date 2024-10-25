@@ -1,0 +1,43 @@
+import com.atlassian.jira.component.ComponentAccessor
+import com.epam.SRProperties
+import com.epam.Helper
+import static org.apache.commons.lang.StringEscapeUtils.escapeHtml
+ 
+def props = SRProperties.instance.properties
+final String confluenceBaseUrl = "https://confluence.elcompanies.net"
+final String confluenceToken = props["confl_token"].toString()
+final int confluencePageId = 445142495
+final String confluenceTitle = "Jira Custom Fields"
+ 
+def customFields = ComponentAccessor.getCustomFieldManager().getCustomFieldObjects()
+ 
+ 
+StringBuilder output = new StringBuilder("<table><th>Id</th><th>Name</th><th>Type</th><th>Project Context</th>")
+ 
+for(def field: customFields){
+ 
+   
+    output.append("<tr><td>${field.getId()}</td>")
+    output.append("<td>${escapeHtml(field.getFieldName())}</td>")
+    output.append("<td>${escapeHtml(field.customFieldType.getName())}</td>")
+ 
+    if(field.isGlobal())
+        output.append("<td>Global</td>")
+    else if(field.isAllProjects())
+        output.append("<td>All Projects</td>")
+    else{
+        output.append("<td>")
+        for(def project: field.getAssociatedProjectObjects()){
+            output.append("${escapeHtml(project.getName())}(${escapeHtml(project.getKey())})<br />")
+        }
+        output.append("</td>")
+    }
+    output.append("</tr>")
+ 
+}
+ 
+output.append("</table>")
+ 
+int version = Helper.GetPageCurrentVersion(confluenceBaseUrl, confluenceToken, confluencePageId)
+if(version != 0)
+    log.warn(Helper.SendTableToConfluence(confluenceBaseUrl, confluenceToken, confluencePageId, confluenceTitle, output.toString(), version))
