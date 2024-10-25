@@ -1,0 +1,32 @@
+// list destination projects here
+def dest_prj = ["DESTINATIONPROJECTKEY", "DESTINATIONPROJECTKEY2"]
+// place source project here
+def source_prj = "SOURCEPROJECTKEY"
+ 
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.bc.project.component.ProjectComponent
+ 
+def projectManager = ComponentAccessor.getProjectManager()
+def projectSource = projectManager.getProjectObjByKey(source_prj).getId()
+def projectComponentManager = ComponentAccessor.getProjectComponentManager()
+Collection<ProjectComponent> componentList = projectComponentManager.findAllForProject(projectSource) as Collection<ProjectComponent>
+ 
+def i = 0
+while ( i < dest_prj.size() ) {
+    def projectDestinationList = projectManager.getProjectObjByKey(dest_prj[i])
+    def project = projectDestinationList
+ 
+    if (componentList != null) {
+         for (component in componentList) {
+            //log.debug("Component " + component.getName() )
+            def componentTemp = projectComponentManager.findByComponentName(project.getId(), component.getName())
+            if  (componentTemp == null) {
+                //log.debug("Now adding component " + component.getName() + " to " + project.getName())
+                def componentTempResult = projectComponentManager.create(component.getName(), component.getDescription(), component.getLead(), 1,project.getId())
+                // 1= COMPONENT_LEAD, 2= PROJECT_DEFAULT, 3 =PROJECT_LEAD , 4= UNASSIGNED          
+         }      
+        }
+    }
+    i++
+}
