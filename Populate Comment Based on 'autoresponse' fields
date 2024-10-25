@@ -1,0 +1,78 @@
+import com.onresolve.jira.groovy.user.FieldBehaviours
+ 
+import com.onresolve.jira.groovy.user.FormField
+ 
+import com.atlassian.jira.component.ComponentAccessor
+ 
+def currentuser = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+log.warn(currentuser)
+def groupManager = ComponentAccessor.getGroupManager()
+def usersInAdmins = groupManager.getUsersInGroup("jira-administrators")
+log.warn(usersInAdmins)
+//-----------------------------------------------------------------------------------
+if (usersInAdmins.contains(currentuser) && underlyingIssue.status.name == "In Progress") {
+ 
+def userFullNameCf = customFieldManager.getCustomFieldObjectByName("User Full Name")
+def userUsernameCf = customFieldManager.getCustomFieldObjectByName("User Email Address")
+//def applicationCf = getFieldByName('Application(s)')
+ 
+def autoResponseJiraCf = customFieldManager.getCustomFieldObjectByName('Auto Response Jira')
+def autoResponseConfCf = customFieldManager.getCustomFieldObjectByName('Auto Response Confluence')
+def autoResponseBitbCf = customFieldManager.getCustomFieldObjectByName('Auto Response Bitbucket')
+def authorName = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser().getDisplayName()
+ 
+String displayName=userFullNameCf.getValueFromIssue(underlyingIssue)
+String userName=userUsernameCf.getValueFromIssue(underlyingIssue)
+//def applications=applicationCf.value as List
+//log.warn(applications)
+ 
+String autoResponseJira = autoResponseJiraCf.getValueFromIssue(underlyingIssue).toString()
+String autoResponseConf = autoResponseConfCf.getValueFromIssue(underlyingIssue).toString()
+String autoResponseBitb = autoResponseBitbCf.getValueFromIssue(underlyingIssue).toString()
+ 
+if (autoResponseJira!="null"||autoResponseConf!="null"||autoResponseBitb!="null") {
+ 
+    def comment = "Dear $displayName ([~$userName]),\n\rThanks for reaching out!\n"
+ 
+    int alreadyExist = 0
+ 
+    if (autoResponseJira!="null") {
+      if (!autoResponseJira.contains("The admin(s) of the project"))
+      {
+        if (autoResponseJira.contains("already exists") && autoResponseConf.contains("already exists") && autoResponseBitb.contains("already exists")) {
+            comment += "Your Jira, Confluence and Bitbucket accounts already exist and are active. Please let us know if there's an access issue.\n\r"
+            alreadyExist=111
+        }
+        else if (autoResponseJira.contains("already exists") && autoResponseConf.contains("already exists")) {
+            comment += "Your Jira and Confluence accounts already exist and are active. Please let us know if there's an access issue.\n\r"
+            alreadyExist=110
+        }
+        else if (autoResponseJira.contains("already exists") && autoResponseBitb.contains("already exists")) {
+            comment += "Your Jira and Bitbucket accounts already exist and are active. Please let us know if there's an access issue.\n\r"
+            alreadyExist=101
+        }
+        else comment += autoResponseJira
+      }
+      else comment += autoResponseJira
+    }
+    if (autoResponseConf!="null" && alreadyExist==0)
+    {
+        if (autoResponseConf.contains("already exists") && autoResponseBitb.contains("already exists")) {
+            comment += "Your Confluence and Bitbucket accounts already exist and active. Please let us know if there's an access issue.\n\r"
+            alreadyExist=11
+        }
+        comment += autoResponseConf
+    }
+    if (autoResponseBitb!="null"  && alreadyExist==0) {
+        comment += autoResponseBitb
+    }
+ 
+    comment += "\rBest regards,\n$authorName\nELC Agile Tools team"
+ 
+    //log.warn(comment)
+ 
+    getFieldById("comment").setFormValue(comment)
+}
+else {
+    getFieldById("comment").setFormValue(null)
+}
