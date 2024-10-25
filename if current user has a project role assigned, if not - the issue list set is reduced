@@ -1,0 +1,32 @@
+/*This script checks if a current user has a project role assigned, if not - the issue list set is reduced,
+if it's a sub-task creation form - no issue types would be available at all*/
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.security.roles.ProjectRoleManager
+import com.onresolve.jira.groovy.user.FieldBehaviours
+import groovy.transform.BaseScript
+ 
+import static com.atlassian.jira.issue.IssueFieldConstants.ISSUE_TYPE
+ 
+@BaseScript FieldBehaviours fieldBehaviours
+ 
+def projectRoleManager = ComponentAccessor.getComponent(ProjectRoleManager)
+def allIssueTypes = ComponentAccessor.constantsManager.allIssueTypeObjects
+def user = ComponentAccessor.jiraAuthenticationContext.loggedInUser
+ 
+def issueTypeField = getFieldById(ISSUE_TYPE)
+def remoteUsersRoles = projectRoleManager.getProjectRoles(user, issueContext.projectObject)*.name
+def availableIssueTypes = []
+ 
+if (remoteUsersRoles) {
+    availableIssueTypes.addAll(allIssueTypes.findAll { it.name in ["Story", "Epic", "Risk", "Task", "Sub-Bug", "Sub-task", "Bug", "Defect"] })
+}
+else {
+    availableIssueTypes.addAll(allIssueTypes.findAll { it.name in ["Story", "Risk", "Task", "Sub-Bug", "Bug", "Defect"] })
+ 
+    def issueManager = ComponentAccessor.getIssueManager()
+    if (getIssueContext().getIssueType().isSubTask()) {
+        availableIssueTypes = []
+    }
+}
+ 
+issueTypeField.setFieldOptions(availableIssueTypes)
