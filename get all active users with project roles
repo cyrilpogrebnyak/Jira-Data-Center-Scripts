@@ -1,0 +1,102 @@
+import java.text.SimpleDateFormat
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.ProjectManager
+import java.lang.StringBuilder
+import com.atlassian.jira.bc.user.search.UserSearchService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.application.ApplicationAuthorizationService
+import com.atlassian.jira.application.ApplicationKeys
+import com.atlassian.jira.bc.JiraServiceContextImpl
+import com.atlassian.jira.bc.user.search.UserSearchParams
+import com.atlassian.jira.bc.user.search.UserSearchService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.permission.PermissionSchemeService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.security.roles.ProjectRoleManager
+import com.atlassian.jira.config.properties.APKeys
+import com.epam.SRProperties
+import com.epam.Helper
+import com.atlassian.jira.security.roles.ProjectRole;
+import com.atlassian.jira.security.roles.ProjectRoleActors;
+import com.atlassian.jira.security.roles.ProjectRoleManager;
+import com.atlassian.jira.security.roles.RoleActor;
+import static org.apache.commons.lang.StringEscapeUtils.escapeHtml
+ 
+UserSearchService userService = ComponentAccessor.getUserSearchService()
+ApplicationAuthorizationService applicationAuthorizationService = ComponentAccessor.getComponent(ApplicationAuthorizationService)
+ProjectRoleManager projectRoleManager = ComponentAccessor.getComponent(ProjectRoleManager)
+ApplicationUser loggedInUser = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+JiraServiceContextImpl jiraServiceContext = new JiraServiceContextImpl(loggedInUser)
+PermissionSchemeService permissionSchemeService = ComponentAccessor.getComponent(PermissionSchemeService)
+ProjectManager pManager = ComponentAccessor.getProjectManager()
+ 
+def props = SRProperties.instance.properties
+final String baseurl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
+final String confluenceBaseUrl = "https://confluence.elcompanies.net"
+final String confluenceToken = props["confl_token"].toString()
+final int confluencePageId = 424133861
+final String confluenceTitle = "Jira: all active users"
+final int userSearchMaxResult = 10000
+ 
+ 
+//get all projects
+def prList = pManager.getProjectObjects()
+def projectRoles = projectRoleManager.getProjectRoles()
+ 
+//search users
+UserSearchParams.Builder paramBuilder = UserSearchParams.builder()
+        .allowEmptyQuery(true)
+        .includeActive(true)
+        .includeInactive(false)
+        .maxResults(userSearchMaxResult)
+        .sorted(true)
+Collection<ApplicationUser> users = userService.findUsers(jiraServiceContext, "", paramBuilder.build())
+ 
+int count = 0
+StringBuilder result = new StringBuilder();
+Date currentDate = new Date()
+def sdf = new SimpleDateFormat("dd/MM/yyyy HH:mm:ss")
+result.append("Report date: ${sdf.format(currentDate)} (UTC)<br/><br/>")
+result.append("<table><th>#</th><th>Full Name</th><th>Email</th><th>UserName</th><th>Projects</th>")
+ 
+users.each {jiraUser ->  
+    if(applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE)){
+        count += 1
+        result.append("<tr><td>$count</td><td>${escapeHtml(jiraUser.getDisplayName())}</td>")
+        result.append("<td>${escapeHtml(jiraUser.getEmailAddress())}</td><td>${escapeHtml(jiraUser.getUsername())}</td>")
+ 
+        List<Project> userProjects = []
+ 
+        prList.each { p ->
+ 
+            if(p.getLeadUserName().toLowerCase() == jiraUser.getUsername().toLowerCase())
+                userProjects.add(p)
+ 
+           
+            for(ProjectRole projectRole: projectRoles){
+                def ProjectRoleActors projectRoleActors = projectRoleManager.getProjectRoleActors(projectRole, p)
+           
+                for (RoleActor actor : projectRoleActors.getRoleActorsByType("atlassian-user-role-actor")) {
+                    if(actor.contains(jiraUser))
+                        userProjects.add(p)
+                }
+            }  
+        }
+ 
+        userProjects.unique { a, b -> a.key <=> b.key }
+ 
+        result.append("<td>")
+        userProjects.each { p ->
+            result.append("${escapeHtml(p.name)}(<a href='$baseurl/projects/$p.key/summary'>$p.key</a>)<br />")
+        }
+       
+        result.append("</td></tr>")        
+    }
+}
+ 
+result.append("</table>")
+ 
+int version = Helper.GetPageCurrentVersion(confluenceBaseUrl, confluenceToken, confluencePageId)
+if(version != 0)
+    log.warn(Helper.SendTableToConfluence(confluenceBaseUrl, confluenceToken, confluencePageId, confluenceTitle, result.toString(), version))
