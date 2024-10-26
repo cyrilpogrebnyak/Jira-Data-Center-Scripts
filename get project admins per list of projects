@@ -1,0 +1,65 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.ProjectManager
+import com.atlassian.jira.security.roles.ProjectRole
+import com.atlassian.jira.security.roles.ProjectRoleActors
+import com.atlassian.jira.security.roles.ProjectRoleManager
+import java.lang.StringBuilder
+ 
+StringBuilder result = new StringBuilder()
+result.append("<table><th>Project</th><th>Admins Emails</th>")
+ 
+['BPP',
+'MVPDD',
+'AMT',
+'CPFB',
+'ELCEPAM',
+'CBO',
+'DF',
+'ELX4'].each {projectKey ->
+ 
+result.append("<tr><td>${projectKey}</td><td>")
+ 
+ProjectManager projectManager = ComponentAccessor.getProjectManager()
+ProjectRoleManager projectRoleManager = ComponentAccessor.getComponent(ProjectRoleManager)
+def userManager = ComponentAccessor.getUserManager()
+Map<String, String> users = [:]
+ 
+Project project = projectManager.getProjectObjByKey(projectKey)
+ 
+def roles = projectRoleManager.getProjectRoles()
+ 
+roles.each { role ->
+ 
+    def actors = projectRoleManager.getProjectRoleActors(role, project)
+    def usersInRole = actors.getUsers()
+ 
+    usersInRole.each { u ->
+ 
+        def username = u.getUsername().toLowerCase()
+ 
+        if(!users.containsKey(username))
+            users.put(username, role.getName())
+        else
+            users[username] += '; ' + role.getName()
+     }
+   
+ }
+ 
+//result.append("<table><th>Full Name</th><th>Email</th><th>UserName</th><th>Roles</th>")
+users.each { u ->  
+ 
+    def jiraUser = userManager.getUserByName(u.getKey())
+ 
+    //result.append("<tr><td>${jiraUser.getDisplayName()}</td><td>${jiraUser.getEmailAddress()}</td><td>${jiraUser.getUsername()}</td>")
+    if (u.getValue()=="Administrators" && (jiraUser.getEmailAddress()!="ELCJIRASoftware@estee.com" && jiraUser.getEmailAddress()!="vanton@estee.com" && jiraUser.getEmailAddress()!="kpogrebnyak@estee.com" && jiraUser.getEmailAddress()!="mzemtsova@estee.com" && jiraUser.getEmailAddress()!="amalinin@estee.com" && jiraUser.getEmailAddress()!="nsmykov@ru.estee.com" && jiraUser.getEmailAddress()!="testtest@estee.com" && jiraUser.getEmailAddress()!="manishku@estee.com" && jiraUser.getEmailAddress()!="mmaklako@estee.com" && jiraUser.getEmailAddress()!="agligich@estee.com" && jiraUser.getEmailAddress()!="eepstein@estee.com" && jiraUser.getEmailAddress()!="rwong@estee.com" && jiraUser.getEmailAddress()!="caidan@estee.com" && jiraUser.getEmailAddress()!="maalvare@estee.com" && jiraUser.getEmailAddress()!=""))
+        {
+        result.append("${jiraUser.getEmailAddress()}; ")
+        }
+}
+result.append("</td>")
+}
+ 
+result.append("</table>")
+return result.toString()
