@@ -1,0 +1,17 @@
+import com.atlassian.jira.bc.user.UserService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.application.ApplicationAuthorizationService
+import com.atlassian.jira.application.ApplicationKeys
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.bc.user.search.UserSearchService
+ 
+def userManager = ComponentAccessor.getUserManager()
+ 
+def usernames = ['Jira Automation User']
+def userkeys = []
+ 
+usernames.each { username ->
+    ApplicationUser jiraUser = Users.getByName(username)
+    userkeys.add(jiraUser.key) }
+ 
+return userkeys
