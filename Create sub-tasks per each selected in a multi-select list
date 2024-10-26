@@ -1,0 +1,39 @@
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.Issue
+import com.atlassian.jira.issue.MutableIssue
+import com.atlassian.jira.issue.customfields.option.Option
+import com.atlassian.jira.issue.customfields.manager.OptionsManager
+ 
+import com.atlassian.jira.user.ApplicationUser
+ 
+import org.apache.log4j.Logger
+import org.apache.log4j.Level
+ 
+def log = Logger.getLogger("com.acme.CreateSubtask")
+log.setLevel(Level.DEBUG)
+ 
+def constantManager = ComponentAccessor.getConstantsManager()
+def issueFactory = ComponentAccessor.getIssueFactory()
+def subTaskManager = ComponentAccessor.getSubTaskManager()
+def issueManager = ComponentAccessor.getIssueManager()
+ApplicationUser user = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+Issue parentIssue = issue
+ 
+def customFieldManager = ComponentAccessor.customFieldManager
+def cf = customFieldManager.getCustomFieldObject("customfield_16426")
+def multiSelectFieldValue = issue.getCustomFieldValue(cf) as List
+if (multiSelectFieldValue!=null) {
+multiSelectFieldValue.each { entry ->
+ 
+MutableIssue newSubTask = issueFactory.getIssue()
+newSubTask.setParentObject(parentIssue)
+newSubTask.setProjectObject(parentIssue.getProjectObject())
+newSubTask.setIssueTypeId(constantManager.getAllIssueTypeObjects().find{it.getName() == "Sub-task"}.id)
+newSubTask.setSummary(entry as String)
+def newIssueParams = ["issue" : newSubTask] as Map
+ issueManager.createIssueObject(user, newIssueParams)
+ subTaskManager.createSubTaskIssueLink(parentIssue, newSubTask, user)
+ 
+ log.info "Sub-task ${newSubTask.summary} created for ${issue.key}"
+}}
+else log.info "No countries selected - no sub-tasks created"
