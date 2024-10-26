@@ -1,0 +1,226 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.MutableIssue
+import java.sql.Timestamp
+ 
+ 
+public getIssueIDs(String project) {
+    def issueMgr = ComponentAccessor.getIssueManager()
+    return issueMgr.getIssueIdsForProject(ComponentAccessor.getProjectManager().getProjectObjByKey(project).getId())
+}
+ 
+public getUserNames(Long id, Timestamp date) {
+    def users = []
+    def issueMgr = ComponentAccessor.getIssueManager()
+    def userMgr = ComponentAccessor.getUserManager()
+    def issue = issueMgr.getIssueObject(id)
+    if (issue != null) {
+        def changeHistoryManager = ComponentAccessor.getChangeHistoryManager()
+        def allHistory = changeHistoryManager.getAllChangeItems(issue)
+        if (issue.getCreated() >= date ){
+            if (issue.getCreatorId() != null) {
+                if (userMgr.getUserByKey(issue.getCreatorId()) != null) {
+                users.add(userMgr.getUserByKey(issue.getCreatorId()).emailAddress)
+                }
+        }
+        }
+        for (history in allHistory) {
+            if (history.getCreated() >= date ) {
+                if (history.getUserKey() != null){
+                    if (userMgr.getUserByKey(history.getUserKey()) != null) {
+                        def HistoryAuthor = userMgr.getUserByKey(history.getUserKey()).emailAddress
+                        if (HistoryAuthor != null) {
+                            if (!users.contains(HistoryAuthor) ) {
+                                users.add(HistoryAuthor)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return users
+    }
+    else return null
+}
+public getProjectName(String project){
+    return ComponentAccessor.getProjectManager().getProjectByCurrentKey(project).getName()
+}
+ 
+public getUserNamesInListOfProjects(List<String> projects, String dateString='1970-01-01 00:00:01', count = 'yes')
+{
+    def var = ""
+    for (project in projects) {
+        var = var + "|" + project + " | " + ComponentAccessor.getProjectManager().getProjectByCurrentKey(project).getName() +"|"
+        if (count == 'yes'){
+            def x = getUserNamesInProject(project, dateString)
+            var = var + " " + x.size() + "|<br/>"
+            for (user in x) {
+                var = var + "|    " + user + "<br/>"
+            }
+         }
+        if (count == 'no'){
+            var = var + "<br/>"
+            for (user in getUserNamesInProject(project, dateString)) {
+                var = var + "    " + user + "<br/>"
+            }
+        }
+    }
+    return var
+}
+ 
+public getUserNamesInProjectAndCount(String project, String dateString='1970-01-01 00:00:01') {
+      def list = getUserNamesInProject(project, dateString)
+    list.add(list.size())
+    return list
+}
+ 
+public getUserNamesInProject(String project, String dateString='1970-01-01 00:00:01') {
+    def issues = getIssueIDs(project)
+    def email = []
+    Timestamp date = Timestamp.valueOf(dateString)
+    for (issue in issues) {
+        for (user in getUserNames(issue, date)){
+            if (!email.contains(user)){
+                email.add(user)
+            }
+        }
+    }
+    return email
+}
+ 
+public getUserNamesFromIssueList(List issues, quoted = "no", String dateString='1970-01-01 00:00:01') {
+    def email = []
+    def var = ""
+    Timestamp date = Timestamp.valueOf(dateString)
+    for (issue in issues) {
+        for (user in getUserNames(issue, date)){
+            if (!email.contains(user)){
+                email.add(user)
+                if (quoted == "no"){}
+                else if (quoted == "yes"){
+                    var = var + "\"" + user + "\", "
+                }
+            }
+        }
+    }
+if (quoted == "no"){return email}
+else if (quoted == "yes"){return var }
+}
+ 
+public getListOfAllIssuesInProject (String project, def amount = 250) {
+    def num = 0
+    def var =  ""
+    for (issue in getIssueIDs(project))
+    {
+        num ++
+        if (num >= amount) {
+            var = var + "<br/><br/><br/>" + issue
+            num = 0
+        }
+        else {
+            var = var + issue + ", "
+        }
+    }
+    return var
+}
+ 
+public getAllIssuesSeparated (def n_pr_from = 0, def amount = 100, def amount_i = 250) {
+    HashMap<String, List<Long>> IssuesInProjects = new HashMap<String, List<Long>>()
+    def projects = ComponentAccessor.getProjectManager().getProjects()
+    def var = ""
+    for (project in projects) {
+        IssuesInProjects.put(project.getKey(), getIssueIDs(project.getKey()))
+    }
+    def n_pr = 0
+    def n_i = 0
+    for (project in IssuesInProjects.keySet()) {
+     var = var + "<br/>" + project
+        n_pr ++
+        if (n_pr >= n_pr_from) {
+            for (issue in IssuesInProjects.get(project)) {
+                n_i ++
+                var = var + "<br/>" + "\"" + issue + "\", "
+                if (n_i == amount_i) {
+                       var = var + "<br/><br/><br/>"+ project
+                    n_i = 0
+                }
+            }
+        }
+        if (n_pr == amount + n_pr_from) {
+            break }
+    }
+    return var
+}
+ 
+public getListOfAllProjects(){
+    def projects = ComponentAccessor.getProjectManager().getProjects()
+    def var = ""
+    for (project in projects) {
+        var = var + "<br/>" +"\""+ project.getKey()+"\","
+    }
+    return var
+}
+ 
+public removeDupliactesInListOfUsers(ArrayList list1,ArrayList list2, quoted = "no"){
+    for (x in list2) {
+        if (!list1.contains(x)){
+            list1.add(x)
+        }
+    }
+    if (quoted == "no")
+    {
+        return list1
+    }
+    else if (quoted == "yes"){
+        def var = ""
+        for (x in list1) {
+            var = var + "\"" + x + "\", "
+        }
+        return var
+    }
+}
+public finishedListOfUsers(ArrayList list){
+    def var = ""
+    var = var + list.size() + "<br/>"
+    for (email in list) {
+        var = var + "|   " + email + "|<br/>"
+    }
+    return var
+     
+}
+ 
+//************************************************************************
+//************************************************************************
+//************************************************************************
+ 
+def date = "2022-08-18 00:00:01"
+//return getListOfAllProjects() //list of all project keys
+//return getAllIssuesSeparated(51, 50) //Get List of issues with project keys from 50 projects starting project #51
+//return getUserNamesInProjectAndCount("ELCSP") //List of all users in project
+ 
+def projects = [
+"METST",
+]
+return getUserNamesInListOfProjects(projects, date, 'yes')
+ 
+//return getListOfAllIssuesInProject("P2053", 4000) //Get list of issues in "OSP" project, separated by 250. Prepared for the method below
+//return getProjectName("P2053")
+/*
+def issuelist = [
+id1,
+id2
+ ]
+return getUserNamesFromIssueList(issuelist,"yes", date) //Get owners for all issues from issuelist.
+*/
+/*
+def email_list1 = [
+"email1",
+"email2",
+ ]
+def email_list2 = [
+"email3",
+"email4",
+ ]
+return removeDupliactesInListOfUsers(email_list1, email_list2, "yes") //save only unique emails for both lists
+*/
+//return finishedListOfUsers(email_list1)
