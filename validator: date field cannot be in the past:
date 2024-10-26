@@ -1,0 +1,16 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.CustomFieldManager
+def date = new Date()
+def dateFmt = date.format("yyyyMMdd")
+log.warn(dateFmt)
+def eDateName = "End date 2"
+CustomFieldManager cfManager = ComponentAccessor.getCustomFieldManager()
+def eDateCf = cfManager.getCustomFieldObjectsByName(eDateName)
+def eDate = issue.getCustomFieldValue(eDateCf)
+def eDateFmt = eDate.format("yyyyMMdd")
+log.warn(eDateFmt)
+def dateI = dateFmt as Integer
+def eDateI = eDateFmt as Integer
+if (eDateI>=dateI) return true
+else return false
