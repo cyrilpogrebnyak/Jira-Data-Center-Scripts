@@ -1,0 +1,23 @@
+
+import java.lang.StringBuilder
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.ProjectManager
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.config.properties.APKeys
+ 
+def projectManager = ComponentAccessor.getProjectManager()
+def permissionSchemeManager = ComponentAccessor.getPermissionSchemeManager()
+ 
+def prList = projectManager.getProjectObjects()
+final String baseurl = ComponentAccessor.getApplicationProperties().getString(APKeys.JIRA_BASEURL)
+ 
+StringBuilder result = new StringBuilder()
+ 
+prList.each { p ->
+    def schemeID = permissionSchemeManager.getSchemeIdFor(p)
+    if(schemeID == 10000){
+       result.append("$p.name(<a href='$baseurl/projects/$p.key/summary'>$p.key</a>)</br>")
+    }      
+ }
+ 
+return result.toString()
