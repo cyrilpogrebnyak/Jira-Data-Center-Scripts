@@ -1,0 +1,29 @@
+sync emails to usernames:
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.bc.user.ApplicationUserBuilderImpl
+import com.atlassian.jira.component.ComponentAccessor
+ 
+def userManager = ComponentAccessor.getUserManager()
+ 
+def usernames = [put, usernames, here]
+ 
+usernames.each
+{ username ->
+    try {
+        ApplicationUser user = Users.getByName(username.toString())
+        if (user.getEmailAddress().toString().toLowerCase()!=username.toString().toLowerCase())
+        {
+            try
+            {
+                def nEmail = new ApplicationUserBuilderImpl(user).emailAddress(username.toString().toLowerCase()).build()
+                userManager.updateUser(nEmail)
+            }
+            catch (error)
+            {log.warn("COULDNT UPDATE a user with username $username: ${error.message}")}
+        }
+    }
+    catch (e)
+    {
+        log.warn("Failed to get a user with username $username: ${e.message}")
+    }
+}
