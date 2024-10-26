@@ -1,0 +1,88 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.ModifiedValue
+import com.atlassian.jira.issue.util.DefaultIssueChangeHolder
+ 
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def textField = customFieldManager.getCustomFieldObjects(issue).find {it.name == 'Code Review Detail'}
+def newTableValue = """
+|*Nr*|*Check to be performed*|*Comments*|
+|*1.*      ** |Each service is briefly documented in Developer and contains a modification log.
+Service declaration template:
+ 
+<Short description>
+********************************************************************
+**
+** Service Name       : elc.consumerPurchaseList.eDL.gb.subscribe:subscribeConsumerPurchaseListCanonical
+** Version            : 1.0
+** Author             : Manel Bermad
+** Created Date       : 10-06-2021
+** Input Parameters   : elc.common.canonicals.doc.oag.oag_v8.consumerPurchaseList:doc_consumerPurchaseListCanonical
+** Output Parameters  : Null
+** Description        : Subscribes the Canonical and inserts data into Blob
+**
+********************************************************************
+** Change History (most current on top)
+********************************************************************
+** Date               :
+** Author             :
+** Reason             :
+** Description        :
+********************************************************************|*OK*|
+|*2.*      ** |Each top-level service has the following Audit settings:
+-        Enable auditing:           Always
+-        Log on:                        Error, success, and start
+-        Include pipeline:           Always
+Please note: this is only the case for integration packages (specific solution packages). For generic packages audit settings depend on the functionality.|*OK*|
+|*3.*      ** |All packages are named according to the naming conventions.|*OK*|
+|*4.*      ** |Packages have the correct folder structure.|*OK*|
+|*5.*      ** |All services are named according to the naming conventions.
+(the first word of a service should be a verb; e.g, get, publish, etc.)|*OK*|
+|*6.*      ** |All IS Document Types are named according to the naming conventions.|*OK*|
+|*7.*      ** |All IS schemas are named according to the naming conventions.|*N/A*|
+|*8.*      ** |All triggers are named according to the naming conventions and have the following configuration properties {*}(unless otherwise stated in the technical specification document){*}:
+General
+Enabled:                       True
+Message processing
+Processing mode:         Concurrent
+Max execution threads: 4
+Transient error handling
+Retry until:                     Max attempts reached
+Max retry attempts:       5|*OK*|
+|*9.*      ** |All ACL’s and user groups are named according to the naming conventions.|*N/A*|
+|*10.*   ** |All TN Profiles are named according to the naming conventions.|*OK*|
+|*11.*   ** |All TN Document Types are named according to the naming conventions.|*OK*|
+|*12.*   ** |All TN Processing Rules are named according to the naming conventions.|*OK*|
+|*13.*   ** |All TN Trading Partner Agreements are named according to the naming conventions.|*OK*|
+|*14.*   ** |The code of each service is properly sequenced:
+·       The structure of the service is easy to understand
+·       Each top-level service has, at minimum, the Try and Catch sequence flow steps built-in|*OK*|
+|*15.*   ** |Error handling in CATCH blocks should be done exclusively by calling {*}elc.common.errorHandling:logError{*}.|*OK*|
+|*16.*   ** |The Flow step  has an error message in it. The message include the runtime exception *%lastError/error%* if in the pipeline.|*OK*|
+|*17.*   ** |Services are sufficiently modularized:
+·       Segment mapping is applied
+·       Reusable pieces of code are isolated in separate services
+·       Existing utility services are used for common tasks|*OK*|
+|*18.*   ** |Publishable Document Types are in sync with the Broker.|*?*|
+|*19.*   ** |There are no disabled steps in any of the services.|*OK*|
+|*20.*   ** |There are no savePipeline and/or restorePipeline invocation steps in any of the services.|*OK*|
+|*21.*   ** |All pipelineDebug are set to ‘none’ in Savepipeline in the properties tab|*OK*|
+|*22.*   ** |There are no unnecessary variables used in the pipeline in any service:
+·       At the end of the service there's a clearPipeline step (except for services that are invoked from a dsp)
+·       The output signature of each service reflects the variables that can be returned by that service
+·       Variables are dropped in time
++IMPORTANT:+ +The variables *documentId* and *IZId* are mapped in the *startService* and NOT dropped anywhere in the flow until being used in the catch Sequence Flow+|*OK*|
+|*23.*   ** |Is the interface using any java services? If yes, is a common/public service already available? If No, Can this service be written in Flow language, without much performance impact?|N/A (No Jave services used)|
+|*24.*   ** |There is a Test Plan document written and approved for this interface/group of interfaces.|*Failed (Still to create test plan)*|
+|*25.*   ** |There is a Unit Test document written and approved for this interface/group of interfaces. The tests were made and evidences placed on the Unit Test document (only FTP interfaces do not need a test case).|*Failed (to be approved)*|
+|*26.*   ** |Metadata for the publish interfaces was created with main points as focused in the image below:|*OK*|
+|*27.*   ** |There are on “Error Management” section of the Dashboard, entries for the Interfaces similar then the sample image below:|*OK*|
+"""
+ 
+// Update the custom field with the new table value
+def changeHolder = new DefaultIssueChangeHolder()
+if (!issue.getCustomFieldValue(textField))
+{
+    textField.updateValue(null, issue, new ModifiedValue(issue.getCustomFieldValue(textField), newTableValue), changeHolder)
+}
+доступно контекстное меню
