@@ -1,0 +1,31 @@
+
+import com.atlassian.jira.bc.project.ProjectCreationData
+import com.atlassian.jira.bc.project.ProjectService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.project.AssigneeTypes
+import com.atlassian.jira.project.type.ProjectTypeKey
+//import com.atlassian.jira.issue.context.Issues.IssueContextImpl
+import com.atlassian.jira.issue.fields.CustomField
+import com.atlassian.jira.issue.fields.config.manager.IssueTypeSchemeManager
+import com.atlassian.jira.issue.fields.config.FieldConfigScheme
+import com.atlassian.jira.issue.customfields.CustomFieldUtils
+import com.atlassian.jira.issue.issuetype.IssueType
+//import com.atlassian.jira.web.action.admin.issuetypes
+ 
+// the key for the new project
+['P4074', 'P4047', 'P4073', 'P4075', 'GE', 'P4573', 'P4415', 'P4574', 'P4572', 'E4855', 'E5047', 'P5067', 'P5071', 'P5072', 'P5073', 'P4667', 'DED', 'CJD', 'DME', 'MSEG',
+'SAFT'].each { projectKey ->
+def project = ComponentAccessor.getProjectManager().getProjectByCurrentKey(projectKey)
+def projectManager = ComponentAccessor.getProjectManager()
+//def newCat = projectManager.getProjectCategoryObjectByName('ECR Portfolio')
+//projectManager.setProjectCategory(project,newCat)
+ 
+IssueTypeSchemeManager its = ComponentAccessor.getIssueTypeSchemeManager();
+FieldConfigScheme p = its.getConfigScheme(project);
+ 
+Collection<IssueType> Itsm = ComponentAccessor.getIssueTypeSchemeManager().getIssueTypesForProject(project);
+ 
+Collection<String> collection = Itsm.eachWithIndex { val, idx -> println "$val in position $idx" }.id ;
+collection.add('11800')
+its.update(p,collection);
+}
