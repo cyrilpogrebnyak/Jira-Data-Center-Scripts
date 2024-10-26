@@ -1,0 +1,415 @@
+
+import groovyx.net.http.HTTPBuilder
+import groovyx.net.http.ContentType
+import groovyx.net.http.Method
+import com.atlassian.jira.component.ComponentAccessor
+import com.epam.SRProperties
+ 
+class ConfUser{
+    String username
+    String displayName
+    String email
+    Boolean isActive
+ 
+    ArrayList groups
+ 
+}
+ 
+//functions
+def addComment(String comment){    
+    def author = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+ 
+    //10002l: 10002 - Administrator project role, l - long
+    ComponentAccessor.commentManager.create(issue, author, comment, null, 10002l, true)
+}
+ 
+String getUserEmail(String baseurl, String token, String username){
+ 
+    String result = ""
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/prototype/1/user/non-system/$username")
+ 
+    try{
+        httpBuilder.request(Method.GET, ContentType.JSON) {
+            headers."Authorization" = "Bearer $token"
+ 
+ 
+            response.success = { response, json ->
+                if (json) {
+ 
+                        result = json.displayableEmail
+                }
+            }
+            response.failure = { resp, data ->
+                if (data) {
+                    log.warn("Failed to make http request to $baseurl/rest/prototype/1/user/non-system")
+                    log.warn("statusLine: $resp.status data: $data.text")
+                } else {
+                    log.warn("Failed to make http request to $baseurl/rest/prototype/1/user/non-system statusLine: $resp.status")
+                }
+            }
+        }
+    } catch(e){
+        log.warn("getUserEmail: Some other error occured: ${e.message}")
+    }
+ 
+    return result
+}
+ 
+ArrayList getUserGroups(String baseurl, String token, String username){
+ 
+    ArrayList result = []
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/api/user/memberof?username=$username")
+ 
+    try{
+        httpBuilder.request(Method.GET, ContentType.JSON) {
+            headers."Authorization" = "Bearer $token"
+ 
+ 
+            response.success = { response, json ->
+                if (json) {
+ 
+                        json.results.each { item ->
+                            result.add(item.name)
+                        }
+                }
+            }
+            response.failure = { resp, data ->
+                if (data) {
+                    log.warn("Failed to make http request to $baseurl/rest/api/user/memberof")
+                    log.warn("statusLine: $resp.status data: $data.text")
+                } else {
+                    log.warn("Failed to make http request to $baseurl/rest/api/user/memberof statusLine: $resp.status")
+                }
+            }
+        }
+    } catch(e){
+        log.warn("getUserGroups: Some other error occured: ${e.message}")
+    }
+ 
+    return result
+}
+ 
+Integer getUsedLicenses(String baseurl, String token){
+ 
+    Integer result = -1
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/license/1.0/license/userCount")
+ 
+    try{
+        httpBuilder.request(Method.GET, ContentType.JSON) {
+            headers."Authorization" = "Bearer $token"
+ 
+ 
+            response.success = { response, json ->
+                if (json) {
+                        log.warn(json)
+                        result = json.count
+                }
+            }
+            response.failure = { resp, data ->
+                if (data) {
+                    log.warn("Failed to make http request to $baseurl/rest/license/1.0/license/userCount")
+                    log.warn("statusLine: $resp.status data: $data.text")
+                } else {
+                    log.warn("Failed to make http request to $baseurl/rest/license/1.0/license/userCount statusLine: $resp.status")
+                }
+            }
+        }
+    } catch(e){
+        log.warn("getUsedLicenses: Some other error occured: ${e.message}")
+    }
+ 
+    return result
+}
+ 
+ConfUser getUserByUsername (String baseurl, String token, String username){
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/api/user?username=$username&expand=status")
+   
+    ConfUser user = null
+ 
+    try{
+        httpBuilder.request(Method.GET, ContentType.ANY) {
+            headers."Authorization" = "Bearer $token"
+ 
+            response.success = { response, json ->
+               
+                if (json) {
+                   
+                    user = new ConfUser()
+ 
+                    user.email = getUserEmail(baseurl, token, username)
+                    user.username = json.username
+                    user.displayName = json.displayName
+                    if(json.status == "deactivated")
+                        user.isActive = false
+                    else
+                        user.isActive = true
+ 
+                   
+                    user.groups = getUserGroups(baseurl, token, username)
+ 
+                    log.warn(json.status)
+                    log.warn(user.email)
+                    log.warn(user.username)
+                    log.warn(user.displayName)
+                    log.warn(user.isActive)
+                    log.warn(user.groups)
+                }
+            }
+            response.failure = { resp, data ->
+                if(resp.status == 404)
+                    log.warn("User doesn't exist")
+                else if (data) {
+                    log.warn("Failed to make http request to $baseurl/rest/api/user?username=$username statusLine: $resp.status, data: $data.text")
+                } else {
+                    log.warn("Failed to make http request to $baseurl/rest/api/user?username=$username, statusLine: $resp.status")
+                }
+            }
+        }
+    } catch(e){
+        log.warn("getUserByUsername: Some other error occured: ${e.message}")
+    }
+ 
+    return user
+}
+ 
+String activateUser(String baseurl, String token, String username) {
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/api/admin/user/$username/enable")
+    String output
+ 
+    try{
+        httpBuilder.request(Method.PUT, ContentType.ANY) {
+            headers."Authorization" = "Bearer $token"
+ 
+            response.success = { response, json ->        
+                    output = "Success"
+            }
+            response.failure = { resp, data ->
+                if(resp.status == 404)
+                    log.info(data.text)
+                else if (data) {
+                    output = "Failed to make http request to $baseurl/rest/api/admin/user/$username/enable. $resp.status $data.text"
+                } else {
+                    output = "Failed to make http request to $baseurl/rest/api/admin/user/$username/enable. $resp.status"
+                }
+            }
+        }
+    } catch(e){
+        output = "Some error occured: $e.message"
+        log.warn("activateUser: Some other error occured: ${e.message}")
+    }
+    return output
+}
+ 
+ 
+/*List<ConfUser> getUsersByEmail (String baseurl, String token, String email){
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/epamrest/1.0/user/search?email=$email")
+    List<ConfUser> users = []
+ 
+    try{
+        httpBuilder.request(Method.GET, ContentType.ANY) {
+        headers."Authorization" = "Bearer $token"
+ 
+            response.success = { response, json ->
+                if (json) {
+                    log.warn(json)
+ 
+                        json.each{u ->
+                                ConfUser user = new ConfUser()
+ 
+                                user.email = u.emailAddress
+                                user.username = u.username
+                                user.displayName = u.fullName
+                                user.isActive = u.isActive
+                                user.groups = u.userGroups
+                                users.add(user)
+                            }
+                        }
+                }
+           
+            response.failure = { resp, data ->
+                if(resp.status == 404)
+                    log.info(data.text)
+                else if (data) {
+                    log.warn("Failed to make http request to $baseurl/rest/epamrest/1.0/user/search?email=$email statusLine: $resp.status, data: $data.text")
+                } else {
+                    log.warn("Failed to make http request to $baseurl/rest/epamrest/1.0/user/search?email=$email, statusLine: $resp.status")
+                }
+            }
+        }
+    } catch(e){
+        log.warn("Some other error occured: $e.message")
+    }
+ 
+    return users
+}*/
+ 
+String CreateUser(String baseurl, String authToken, String userName, String emailAddress,String displayName){
+ 
+    String output
+    def remoteUserCreate = new HTTPBuilder("$baseurl/rest/api/admin/user")
+    try{
+        remoteUserCreate.request(Method.POST, ContentType.JSON) {
+        headers."Authorization" = "Bearer ${authToken}"
+ 
+        body = [ userName :userName,
+            fullName : displayName,
+            email : emailAddress,
+            notifyViaEmail : true
+            ]
+ 
+        response.success = { response ->
+ 
+            output = "Success"
+        }
+        response.failure = { resp, data ->
+            log.warn(resp.status)
+ 
+            if (data) {
+                output = "Failed to make http request to $baseurl/rest/user-management/1.0/users/create. $resp.status $data.text"
+                log.warn("Failed to make http request to $baseurl/rest/user-management/1.0/users/create. $resp.status $data.text")
+            } else {
+                output = "Failed to make http request to $baseurl/rest/user-management/1.0/users/create. $resp.status"
+                log.warn("Failed to make http request to $baseurl/rest/user-management/1.0/users/create. $resp.status")
+            }
+           
+        }
+      }
+   } catch(e){
+      output = "Some error occured: $e.message"
+      log.warn("CreateUser: Some other error occured: ${e.message}")
+   }
+   return output
+}
+ 
+ 
+ 
+String addUserToGroup(String baseurl, String token, String username, String group) {
+    def httpBuilder = new HTTPBuilder("$baseurl/rest/api/user/$username/group/$group")
+ 
+    String output
+ 
+    try{
+        httpBuilder.request(Method.PUT, ContentType.ANY) {
+            headers."Authorization" = "Bearer $token"
+ 
+            response.success = { response, json ->
+                if (json) {                    
+                    output = "Success"
+                }
+            }
+            response.failure = { resp, data ->
+ 
+                if(resp.status == 404)
+                    log.info(data.text)
+                else if (data) {
+                    output = "Failed to make http request to $confluence_baseurl/rest/api/user/$username/group/$group. $resp.status $data.text"
+                } else {
+                    output = "Failed to make http request to $confluence_baseurl/rest/api/user/$username/group/$group. $resp.status"
+                }
+            }
+        }
+    } catch(e){
+        output = "Some error occured: $e.message"
+        log.warn("addUserToGroup: Some other error occured: ${e.message}")
+    }
+    return output
+}
+ 
+ 
+//accessors
+def issueManager = ComponentAccessor.issueManager
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+ 
+def props = SRProperties.instance.properties
+ 
+final String confluence_baseurl = "https://confluence.elcompanies.net"
+final String licensigGroupName = "confluence-users"
+def authToken = props['confl_token'].toString()
+ 
+//customfields
+def userFullNameCf = customFieldManager.getCustomFieldObjectByName("User Full Name")
+// WAS def userIDcf = customFieldManager.getCustomFieldObjectByName('User ID')
+/*IS AFTER AN SSO SWITCH*/ def userIDcf = customFieldManager.getCustomFieldObjectByName('User Email Address')
+def userEmailcf = customFieldManager.getCustomFieldObjectByName('User Email Address')
+ 
+String userName = issue.getCustomFieldValue(userIDcf).trim().toLowerCase()
+ 
+String emailAddress = issue.getCustomFieldValue(userEmailcf).trim().toLowerCase()
+String displayName = issue.getCustomFieldValue(userFullNameCf).trim()
+final boolean sendNotification = false
+    String autoReplyContent = ""
+ 
+assert userName: "User name is empty"
+assert emailAddress: "Email is empty"
+assert displayName: "Display Name is empty"
+ 
+String comment = "CONFLUENCE:\n\r"
+ 
+/*String correctUserName = emailAddress.substring(0, emailAddress.lastIndexOf("@"))
+if(correctUserName != userName){
+    comment += "Username should be equal to the first part of the email. User will have problems logging in via SSO\n\r"
+    comment += "Correct the username and try again"
+    addComment(comment);
+    return
+}*/
+ 
+ConfUser confUser = getUserByUsername(confluence_baseurl, authToken, userName)
+ 
+ 
+//comment += "Current licensed users count: " + getUsedLicenses(confluence_baseurl, authToken) + "\n\r"
+ 
+if(confUser)
+{
+    if (confUser.isActive && confUser.groups.contains(licensigGroupName))
+        {
+            comment += "User *$userName* is active and has software license. Nothing to do.\n\r"
+            autoReplyContent += "Your Confluence account already exists and active, please let us know if there's an access issue.\n\r"
+        }
+    if(!confUser.isActive)
+        {
+            String output =  activateUser(confluence_baseurl, authToken, userName)
+            if(output == "Success")
+            {
+                comment += "User *$userName* has been reactivated.\n\r"
+                autoReplyContent += "Your ELC Confluence account has been reactivated.\n"
+                autoReplyContent += "URL of the Confluence: https://confluence.elcompanies.net\n"  
+            }
+            else
+                comment += output
+           
+        }
+    if(!confUser.groups.contains(licensigGroupName))
+        {
+            String output =  addUserToGroup(confluence_baseurl, authToken, userName, licensigGroupName)
+           
+            if(output == "Success")
+            {
+                comment += "User *$userName* has been added to lisensing group\n\r"
+                autoReplyContent += "Your ELC Confluence account has been reactivated.\n"
+                autoReplyContent += "URL of the Confluence: https://confluence.elcompanies.net\n\r"  
+            }
+            else
+                comment += output
+        }
+ 
+}
+else
+{
+   String output =  CreateUser(confluence_baseurl, authToken, userName, emailAddress, displayName)
+ 
+    if(output == "Success")
+    {
+        comment += "User *$userName* has been created\n\r"
+        autoReplyContent += "Your ELC Confluence account has been created.\n"
+        autoReplyContent += "URL of the Confluence: https://confluence.elcompanies.net\n\r"    
+    }    
+ 
+    else
+        comment += output
+}
+ 
+addComment(comment)
+ 
+issue.update {
+    setCustomFieldValue("Auto Response Confluence", autoReplyContent)
+}
