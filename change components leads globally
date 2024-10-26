@@ -1,0 +1,38 @@
+
+import com.atlassian.jira.bc.project.component.MutableProjectComponent
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.UpdateProjectParameters
+import com.atlassian.jira.user.ApplicationUser
+import com.onresolve.scriptrunner.canned.util.OutputFormatter
+import com.onresolve.scriptrunner.parameters.annotation.ProjectPicker
+import com.onresolve.scriptrunner.parameters.annotation.UserPicker
+import com.atlassian.jira.scheme.SchemeManager;
+import com.atlassian.jira.scheme.Scheme;
+ 
+def userManager = ComponentAccessor.getUserManager()
+def updatedComponents = []
+ 
+[add,usernames,here].each
+{ username ->
+    try
+    {
+        //def projectManager = ComponentAccessor.projectManager
+        def projComponentManager = ComponentAccessor.projectComponentManager
+        def user = userManager.getUserByName(username)
+        def comp = projComponentManager.findComponentsByLead(user.name)
+        comp.each
+        {
+            MutableProjectComponent newProjComp = MutableProjectComponent.copy(it)
+            newProjComp.setLead("JIRAUSER73362")
+            newProjComp.setAssigneeType(3)
+            projComponentManager.update(newProjComp)
+            updatedComponents.add(it.name+" "+it.projectId)
+        }
+    }  
+    catch (e)
+    {
+        log.warn "Error:"+e.message
+    }
+}
+return updatedComponents
