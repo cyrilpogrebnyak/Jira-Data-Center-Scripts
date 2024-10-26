@@ -1,0 +1,59 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.security.login.LoginManager
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import com.atlassian.jira.user.util.UserUtil;
+import com.atlassian.jira.bc.user.UserService
+ 
+UserUtil userUtil = ComponentAccessor.getUserUtil()
+def loginManager = ComponentAccessor.getComponentOfType(LoginManager.class)
+def userManager = ComponentAccessor.userManager
+def userService = ComponentAccessor.getComponent(UserService)
+ 
+def groupManager = ComponentAccessor.getGroupManager()
+ 
+def adminGroup = groupManager.getUsersInGroup('jira-administrators')
+def softwareGroup = groupManager.getUsersInGroup('jira-software-users')
+String whitelistGroupName = 'jira-cleanup-whitelist'
+def whitelistGroup = groupManager.getUsersInGroup(whitelistGroupName)
+ 
+def users = adminGroup + softwareGroup
+users.unique()
+ 
+def activeUsers = users.findAll { user ->
+    user.isActive()
+}
+def activeWhitelist = whitelistGroup.findAll() {whUser ->
+    whUser.isActive()
+}
+ 
+ 
+ 
+def usersToCleanUp = ['username1',
+'username2']
+ 
+//return whitelistGroup
+int count=0
+usersToCleanUp.each { username ->
+    if (userManager.isUserExisting(userManager.getUserByName(username)))
+    {
+        def user2 = Users.getByName(username)
+        if (!activeWhitelist.contains(username))
+        {
+        def updatedUser = userService.newUserBuilder(user2).active(false).build()
+        def updateUserValidationResult = userService.validateUpdateUser(updatedUser)
+            if (updateUserValidationResult.isValid())
+            {
+                log.warn "Deactivating user ${username}"
+                userService.updateUser(updateUserValidationResult)
+                count++
+            }
+            else
+            {
+                log.warn "Update of ${user2.name} failed: ${updateUserValidationResult.errorCollection.errors.entrySet().join(',')}\n"
+            }
+        }
+    }
+}
+log.warn("Deactivated "+count+" users in JIRA")
