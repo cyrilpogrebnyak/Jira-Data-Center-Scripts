@@ -1,0 +1,101 @@
+
+import com.atlassian.jira.security.groups.GroupManager
+import com.atlassian.jira.user.util.UserManager
+import java.time.Duration
+import java.sql.Timestamp
+ 
+public int transformDOW(int date){
+    date--
+        if (date == 0) {date = 7}
+    return date
+}
+ 
+def workStartTime = 12
+def workEndTime = 24
+def users = []
+ 
+Calendar c = Calendar.getInstance()
+c.setTimeInMillis(issue.created.getTime())
+c.setTimeZone(TimeZone.getTimeZone("Europe/Moscow"))
+ 
+UserManager um = ComponentAccessor.getUserManager()
+GroupManager gm = ComponentAccessor.getGroupManager()
+def usernames = gm.getUserNamesInGroup("agile_tools_team")
+ 
+for (user in usernames) {
+    users.add(um.getUserByName(user).getKey())
+}
+ 
+def changeHistoryManager = ComponentAccessor.getChangeHistoryManager()
+for (line in  changeHistoryManager.getAllChangeItems(issue)) {
+        if (users.contains(line.getToValue())) {
+            if (line.field == 'assignee') {        
+                if (users.contains(line.getFromValue())) {
+                    return 0
+                }
+                Calendar a = Calendar.getInstance()
+                a.setTimeInMillis(line.created.time)
+                a.setTimeZone(TimeZone.getTimeZone("Europe/Moscow"))
+                if (a.get(Calendar.DATE) == c.get(Calendar.DATE)){
+                    if (c.get(Calendar.HOUR_OF_DAY) >= workEndTime || c.get(Calendar.HOUR_OF_DAY) < workStartTime ){
+                        if (a.get(Calendar.HOUR_OF_DAY) < workStartTime) {
+                            return 0
+                        }
+                        else {
+                            c.set(Calendar.HOUR_OF_DAY, workStartTime)
+                            c.set(Calendar.MINUTE, 0)
+                            c.set(Calendar.SECOND, 0)
+                        }
+                    }
+                    return Duration.ofMillis(a.getTimeInMillis() - c.getTimeInMillis()).toSeconds()
+                }
+                else {
+                    def int aDow = transformDOW(a.get(Calendar.DAY_OF_WEEK))
+                    def int cDow = transformDOW(c.get(Calendar.DAY_OF_WEEK))
+                    def firstweekend = 0
+                    def days = Duration.ofMillis(a.getTimeInMillis() - c.getTimeInMillis()).toDays()
+                    if (a.get(Calendar.HOUR_OF_DAY) < workStartTime) {
+                        a.set(Calendar.HOUR_OF_DAY, 0)
+                        a.set(Calendar.MINUTE, 0)
+                        a.set(Calendar.SECOND, 0)
+                    }
+                    else {
+                        a.add(Calendar.HOUR_OF_DAY, -workStartTime)
+                    }
+                    if (aDow < cDow) {
+                        if (cDow == 6) {
+                            c.set(Calendar.HOUR_OF_DAY, 0)
+                            c.set(Calendar.MINUTE, 0)
+                            c.set(Calendar.SECOND, 0)
+                            c.add(Calendar.DAY_OF_YEAR, 2)
+                            days -= 2
+                            //firstweekend = 2
+                        }
+                        if (cDow == 7) {
+                            c.set(Calendar.HOUR_OF_DAY, 0)
+                            c.set(Calendar.MINUTE, 0)
+                            c.set(Calendar.SECOND, 0)
+                            c.add(Calendar.DAY_OF_YEAR, 1)
+                            days -= 1
+                            //firstweekend = 1
+                        }
+                    }
+                    if (days < 0) {
+                        days = 0
+                    }
+                    def nonWorkingHours = days
+                    def tmpDays = days
+                    while (tmpDays >= 7) {
+                        tmpDays -= 7
+                        nonWorkingHours += 2
+                    }
+                    Duration offset = Duration.ofMillis(a.getTimeInMillis() - c.getTimeInMillis())
+                    offset = offset - Duration.ofHours(12 * nonWorkingHours) - Duration.ofHours(24 * firstweekend)
+                    return offset.toSeconds()
+                }
+            }
+       }  
+}
+if (usernames.contains(issue.get("assignee")?.name)) {
+  return 0
+}
