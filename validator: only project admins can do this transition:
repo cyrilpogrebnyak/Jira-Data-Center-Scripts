@@ -1,0 +1,6 @@
+
+if (cfValues['Initiative Type']?.value == 'New Servce' || cfValues['Initiative Type']?.value == 'One Time Project' || cfValues['Initiative Type']?.value == 'Pilot') {
+    if (isUserMemberOfRole('Administrators')) return true
+    else return false
+}
+else return true
