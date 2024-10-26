@@ -1,0 +1,43 @@
+
+import com.atlassian.jira.config.SubTaskManager
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.Issue
+ 
+def issueManager = ComponentAccessor.issueManager
+def subTaskManager = ComponentAccessor.getSubTaskManager();
+ 
+//JSR-13580 Dmitrii Lubanov
+//Don't used. can be deleted
+ 
+if (issue.getIssueType().getName() == "Story" || issue.getIssueType().getName() == "Task"){
+        if(issue.getStatus().getName() == "Closed"){
+ 
+        def issueService = ComponentAccessor.getIssueService()
+        def user = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+ 
+        def subTasks = issue.getSubTaskObjects()
+        subTasks.each {
+            if (it.statusObject.name != "Closed") {
+                def issueInputParameters = issueService.newIssueInputParameters()
+                issueInputParameters.with {
+                    setResolutionId("10001") // resolution of "Won't Do"
+                    //setComment("*Resolving* as a result of the *Resolve* action being applied to the parent.")
+                    setSkipScreenCheck(true)
+                }
+ 
+                // validate and transition subtask (Closed transition ID for sub-task - 61)
+                def validationResult = issueService.validateTransition(user, it.id, 61, issueInputParameters)
+                if (validationResult.isValid()) {
+                    def issueResult = issueService.transition(user, validationResult)
+                    if (!issueResult.isValid()) {
+                        log.warn("Failed to transition subtask ${it.key}, errors: ${issueResult.errorCollection}")
+                    }
+                } else {
+                    log.warn("Could not transition subtask ${it.key}, errors: ${validationResult.errorCollection}")
+                }
+            }
+        }
+    }
+}
+ 
+доступно контекстное меню
