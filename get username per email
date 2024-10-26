@@ -1,0 +1,26 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+ 
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+ 
+def userIDcf = customFieldManager.getCustomFieldObjectByName("User ID")
+def userEmailCf = customFieldManager.getCustomFieldObjectByName("User Email Address")
+ 
+if (issue.getCustomFieldValue(userEmailCf))
+{
+    String userID = issue.getCustomFieldValue(userIDcf).toString()
+    String userEmail = issue.getCustomFieldValue(userEmailCf).toString()
+ 
+    if (userEmail.contains("@"))
+    {
+        if (userEmail.indexOf("@")!=0)
+        {
+        String newUsername = userEmail.take(userEmail.indexOf("@"))
+        log.warn(newUsername)
+ 
+            issue.update {
+                setCustomFieldValue("User ID", newUsername)
+            }
+        }    
+    }
+}
