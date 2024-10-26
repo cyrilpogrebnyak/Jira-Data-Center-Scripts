@@ -1,0 +1,33 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.UpdateProjectParameters
+import com.atlassian.jira.user.ApplicationUser
+import com.onresolve.scriptrunner.canned.util.OutputFormatter
+import com.onresolve.scriptrunner.parameters.annotation.ProjectPicker
+import com.onresolve.scriptrunner.parameters.annotation.UserPicker
+import com.atlassian.jira.scheme.SchemeManager;
+import com.atlassian.jira.scheme.Scheme;
+ 
+def userManager = ComponentAccessor.getUserManager()
+def updatedProjects = []
+//Put project keys here
+[
+'ASA', 'ARIA', 'DE', 'DTEIP', 'DI', 'DTEINTAKE', 'DTEVTO', 'DTETDOP', 'ELCPLUS', 'FMP', 'GA', 'GMC', 'MTMUN', 'MTM', 'SEC'
+    // add more if required
+].each
+{ projectKey ->
+    try
+    {
+        def projectManager = ComponentAccessor.projectManager
+        def proj = projectManager.getProjectByCurrentKey(projectKey)
+        def params = UpdateProjectParameters.forProject(proj.id).leadUserKey('JIRAUSER73362')
+        projectManager.updateProject(params)
+        updatedProjects.add("Updated ${proj.key} project lead to JIRAUSER73362")
+    }  
+    catch (e)
+    {
+        log.warn "No such project ${projectKey}"
+    }
+}
+return updatedProjects
