@@ -1,0 +1,53 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.security.roles.ProjectRoleManager
+import com.atlassian.jira.bc.projectroles.ProjectRoleService
+import com.atlassian.jira.security.roles.ProjectRoleActor
+import com.atlassian.jira.util.SimpleErrorCollection
+ 
+ 
+def addUsersToRole(Collection<String> usernames, String role, String projectKey){
+ 
+    def projectManager = ComponentAccessor.getProjectManager()
+    def projectRoleService = ComponentAccessor.getComponent(ProjectRoleService)
+    def projectRoleManager = ComponentAccessor.getComponent(ProjectRoleManager)
+    def errorCollection = new SimpleErrorCollection()  
+ 
+    def project = projectManager.getProjectObjByKey(projectKey)
+    log.warn(project.getName())
+    def projectRole = projectRoleManager.getProjectRole(role)
+    log.warn(projectRole.getName())
+ 
+    projectRoleService.addActorsToProjectRole(usernames, projectRole, project, ProjectRoleActor.USER_ROLE_ACTOR_TYPE, errorCollection)
+ 
+    errorCollection.getErrorMessages().each { e -> log.warn(e) }
+}
+ 
+final String projectKey = "HNBFLBRINT"
+final String roleName = "Users"
+final String dataFilePath = "/data_disk/jira_home/uploads_scripts/forJira.csv"
+ 
+/* CSV FORMAT
+user1; user1@example.com; John Doe; */
+ 
+//Directory is PROD, filename is fake
+File file = new File(dataFilePath)
+def csvMapList = []
+def userManager = ComponentAccessor.getUserManager()
+ 
+ 
+file.eachLine { line ->
+    def columns = line.split(";")
+ 
+    def jiraUser = userManager.getUserByName(columns[0])
+ 
+    if(jiraUser)
+        csvMapList.add(jiraUser.getKey())
+    else
+        log.warn("Can't find user with username ${columns[0]} ")
+}
+ 
+log.warn("Users count: " + csvMapList.size())
+ 
+//Add users to project
+addUsersToRole(csvMapList, roleName, projectKey);
