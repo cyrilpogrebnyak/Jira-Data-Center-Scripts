@@ -1,0 +1,6 @@
+import com.atlassian.jira.issue.IssueConstantImpl
+ 
+def priority = getFieldByName('Priority')
+def selectedPriority = ((IssueConstantImpl) priority.getValue()).getId()
+if(selectedPriority=='10100' || selectedPriority=='2') getFieldByName('Details/Justification').setHidden(false)
+else getFieldByName('Details/Justification').setHidden(true)
