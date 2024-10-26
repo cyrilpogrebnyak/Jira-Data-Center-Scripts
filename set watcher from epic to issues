@@ -1,0 +1,32 @@
+
+import com.atlassian.jira.issue.Issue
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.issue.MutableIssue
+MutableIssue issue = issue as MutableIssue
+ 
+ 
+public getEpicLink(Issue id) {
+    def cfMgr = ComponentAccessor.getCustomFieldManager()
+    def epic = cfMgr.getCustomFieldObjectByName('Epic Link')
+    return id.getCustomFieldValue(epic)
+}
+ 
+public getWatchers(Issue id) {
+    def watcherMgr = ComponentAccessor.getWatcherManager()
+    return watcherMgr.getWatchersUnsorted(id)
+}
+ 
+public addWatchers(Issue id, watchers){
+    def watcherMgr = ComponentAccessor.getWatcherManager()
+    def issueMgr = ComponentAccessor.getIssueManager()
+    for (watcher in watchers) {
+        watcherMgr.startWatching(watcher, id)
+    }
+}
+def epic = getEpicLink(issue)
+if (epic != null) {
+    def watchers = getWatchers(epic)
+    if (watchers != null ) {
+       addWatchers(issue, watchers)
+    }
+}
