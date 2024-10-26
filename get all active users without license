@@ -1,0 +1,74 @@
+
+import java.lang.StringBuilder
+import com.atlassian.jira.bc.user.search.UserSearchService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.application.ApplicationAuthorizationService
+import com.atlassian.jira.application.ApplicationKeys
+import com.atlassian.jira.bc.JiraServiceContextImpl
+import com.atlassian.jira.bc.user.search.UserSearchParams
+import com.atlassian.jira.bc.user.search.UserSearchService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.bc.user.UserService
+ 
+UserSearchService userService = ComponentAccessor.getUserSearchService()
+def applicationAuthorizationService = ComponentAccessor.getComponent(ApplicationAuthorizationService)
+ 
+UserSearchParams.Builder paramBuilder = UserSearchParams.builder()
+        .allowEmptyQuery(true)
+        .includeActive(true)
+        .includeInactive(false)
+        .maxResults(100000)
+ 
+ 
+ApplicationUser loggedInUser = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+JiraServiceContextImpl jiraServiceContext = new JiraServiceContextImpl(loggedInUser)
+ 
+def activateDeactivateUser(ApplicationUser userToUpdate, Boolean activate) {
+ 
+ 
+        def userService = ComponentAccessor.getComponent(UserService)
+        def updateUser = userService.newUserBuilder(userToUpdate).active(activate).build()
+        def updateUserValidationResult = userService.validateUpdateUser(updateUser)
+        if (!updateUserValidationResult.valid) {
+            log.error "Update of ${userToUpdate.name} failed. ${updateUserValidationResult.errorCollection}"
+            return
+        }
+ 
+        switch (activate){
+            case true:
+                userToUpdate.isActive() ? log.info("User already active"): log.info("Attempting to activate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} Activated"
+                break
+            case false:
+                !userToUpdate.isActive() ? log.info("User already inactive"): log.info("Attempting to inactivate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} deactivated"
+                break
+            default: break
+        }
+}
+ 
+Collection<ApplicationUser> users = userService.findUsers(jiraServiceContext, "", paramBuilder.build())
+ 
+int count = 0
+ 
+StringBuilder result = new StringBuilder();
+result.append("<table><th>User</th><th>Status</th><th>License</th>")
+ 
+users.each {jiraUser ->  
+    if(!applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE))
+            {
+                result.append("<tr><td>${jiraUser.getUsername()}</td><td>${jiraUser.isActive()}</td><td>false</td></tr>")
+                count += 1
+                //activateDeactivateUser(jiraUser, false)
+            }
+}
+ 
+result.append("</table>")
+result.append("All active users count ${users.size()} <br/>")
+result.append("Active users without license count: $count")
+ 
+ 
+return result
