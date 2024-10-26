@@ -1,0 +1,126 @@
+
+import com.atlassian.jira.bc.user.UserService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.application.ApplicationAuthorizationService
+import com.atlassian.jira.application.ApplicationKeys
+import com.atlassian.jira.user.ApplicationUser
+import org.apache.log4j.Logger
+ 
+ 
+//functions
+ 
+def CreateUser(String userName,String password, String emailAddress,String displayName, boolean sendNotification)
+    {
+        def loggedInUser = ComponentAccessor.jiraAuthenticationContext.loggedInUser
+        def userService = ComponentAccessor.getComponent(UserService)
+ 
+        def newCreateRequest = UserService.CreateUserRequest.withUserDetails(loggedInUser, userName, password, emailAddress, displayName)
+            .sendNotification(sendNotification)
+ 
+        def createValidationResult = userService.validateCreateUser(newCreateRequest)
+        assert createValidationResult.valid : createValidationResult.errorCollection
+ 
+        userService.createUser(createValidationResult)
+    }
+ 
+def activateDeactivateUser(ApplicationUser userToUpdate, Boolean activate) {
+ 
+ 
+        def userService = ComponentAccessor.getComponent(UserService)
+        def updateUser = userService.newUserBuilder(userToUpdate).active(activate).build()
+        def updateUserValidationResult = userService.validateUpdateUser(updateUser)
+        if (!updateUserValidationResult.valid) {
+            log.error "Update of ${userToUpdate.name} failed. ${updateUserValidationResult.errorCollection}"
+            return
+        }
+ 
+        switch (activate){
+            case true:
+                userToUpdate.isActive() ? log.info("User already active"): log.info("Attempting to activate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} Activated"
+                break
+            case false:
+                !userToUpdate.isActive() ? log.info("User already inactive"): log.info("Attempting to inactivate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} deactivated"
+                break
+            default: break
+        }
+}
+ 
+/* CSV FORMAT
+user1; user1@example.com; John Doe; */
+ 
+//Directory is PROD, filename is fake
+File file = new File("/data_disk/jira_home/uploads_scripts/newUsers051702.csv")
+def csvMapList = []
+ 
+file.eachLine { line ->
+    def columns = line.split(",")
+    def tmpMap = [:]
+ 
+    tmpMap.putAt("username", columns[2])
+    tmpMap.putAt("email", columns[1])
+    tmpMap.putAt("displayName", columns[0])
+    csvMapList.add(tmpMap)
+}
+ 
+//return csvMapList
+ 
+// notifications are sent by default, set to false to not send a notification
+final boolean sendNotification = false
+ 
+final String password = ""
+ 
+def log2 = Logger.getLogger("com.onresolve.scriptrunner.runner.ScriptRunnerImpl")
+ 
+def loggedInUser = ComponentAccessor.jiraAuthenticationContext.loggedInUser
+def userService = ComponentAccessor.getComponent(UserService)
+ 
+//accessors
+def issueManager = ComponentAccessor.issueManager
+def userManager = ComponentAccessor.getUserManager()
+def userUtil = ComponentAccessor.getUserUtil()
+def applicationAuthorizationService = ComponentAccessor.getComponent(ApplicationAuthorizationService)
+ 
+final String licensigGroupName = "jira-software-users"
+def licensigGroup = ComponentAccessor.groupManager.getGroup(licensigGroupName)
+assert licensigGroupName : "Could not find group with name $licensigGroupName"
+ 
+//for every line in the file
+csvMapList.each{ tmpMap ->
+   
+    log.warn("Checking user ${tmpMap.getAt("username")} with email address ${tmpMap.getAt("email")} and displayname ${tmpMap.getAt("displayName")} ")
+     
+    //user data
+    String userName = tmpMap.getAt("username").toString().trim().toLowerCase()
+    String emailAddress = tmpMap.getAt("email").toString().trim()
+    String displayName = tmpMap.getAt("displayName").toString().trim()
+    def jiraUser = userManager.getUserByName(userName)
+ 
+    if(jiraUser)
+    {
+        if ((jiraUser.active) && (applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE)))
+            {
+                log.warn("User $userName is active and has software license. Nothing to do.")
+            }
+        if(!jiraUser.active)
+            {
+                activateDeactivateUser(jiraUser, true)
+                log.warn("User $userName has been reactivated.")
+            }
+        if(!applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE))
+            {
+               
+                userUtil.addUserToGroup(licensigGroup, jiraUser)
+                log.warn("User $userName has been added to lisensing group")
+            }
+    }
+    else
+    {
+        CreateUser(userName, password, emailAddress, displayName, sendNotification)
+        log.warn("User $userName has been created")
+    }
+}
+ 
