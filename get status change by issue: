@@ -1,0 +1,30 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+ 
+ 
+final jiraIssue = ComponentAccessor.issueManager.getIssueByCurrentKey('OSP-15347')
+ 
+def changeHistory = ComponentAccessor.changeHistoryManager.getChangeHistories(jiraIssue)
+ 
+StringBuilder builder = new StringBuilder()
+ 
+changeHistory.each {
+    def now = LocalDate.now()
+    def formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.[SSS][SS][S]")
+    def dateToParse = it.timePerformed as String
+    def parsedDate = LocalDate.parse(dateToParse, formatter)
+ 
+    it.changeItems.each {
+       
+        if(it.field == 'status')
+        {
+            builder.append ("Date: ${parsedDate} ${it.field} changed from ${it.oldstring ?: 'nothing'} to ${it.newstring ?: 'nothing'}<br/>")
+        }
+    }
+}
+ 
+return builder
+ 
+доступно контекстное меню
