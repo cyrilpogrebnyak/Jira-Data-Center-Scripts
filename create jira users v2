@@ -1,0 +1,248 @@
+
+import com.atlassian.jira.bc.user.UserService
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.application.ApplicationAuthorizationService
+import com.atlassian.jira.application.ApplicationKeys
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.bc.user.search.UserSearchService
+ 
+import com.atlassian.jira.project.Project
+import com.atlassian.jira.project.ProjectManager
+import com.atlassian.jira.security.roles.ProjectRole
+import com.atlassian.jira.security.roles.ProjectRoleActors
+import com.atlassian.jira.security.roles.ProjectRoleManager
+import java.lang.StringBuilder
+ 
+//functions
+ 
+//password - The password for the new user. If empty a random password will be generated.
+def CreateUser(String userName,String password, String emailAddress,String displayName, boolean sendNotification)
+    {
+        def loggedInUser = ComponentAccessor.jiraAuthenticationContext.loggedInUser
+        def userService = ComponentAccessor.getComponent(UserService)
+ 
+        def newCreateRequest = UserService.CreateUserRequest.withUserDetails(loggedInUser, userName, password, emailAddress, displayName)
+            .sendNotification(sendNotification)
+ 
+        def createValidationResult = userService.validateCreateUser(newCreateRequest)
+        assert createValidationResult.valid : createValidationResult.errorCollection
+ 
+        userService.createUser(createValidationResult)
+    }
+ 
+def activateDeactivateUser(ApplicationUser userToUpdate, Boolean activate) {
+ 
+ 
+        def userService = ComponentAccessor.getComponent(UserService)
+        def updateUser = userService.newUserBuilder(userToUpdate).active(activate).build()
+        def updateUserValidationResult = userService.validateUpdateUser(updateUser)
+        if (!updateUserValidationResult.valid) {
+            log.error "Update of ${userToUpdate.name} failed. ${updateUserValidationResult.errorCollection}"
+            return
+        }
+ 
+        switch (activate){
+            case true:
+                userToUpdate.isActive() ? log.info("User already active"): log.info("Attempting to activate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} Activated"
+                break
+            case false:
+                !userToUpdate.isActive() ? log.info("User already inactive"): log.info("Attempting to inactivate")
+                userService.updateUser(updateUserValidationResult)
+                log.info "${updateUser.name} deactivated"
+                break
+            default: break
+        }
+}
+ 
+def addComment(String comment)
+{    
+    def author = ComponentAccessor.getJiraAuthenticationContext().getLoggedInUser()
+ 
+    //10002l: 10002 - Administrator project role, l - long
+    ComponentAccessor.commentManager.create(issue, author, comment, null, 10002l, true)
+}
+ 
+String getAdminsOfProject(String projectKey)
+{
+    //log.warn(projectKey)
+    StringBuilder result = new StringBuilder()
+ 
+    ProjectManager projectManager = ComponentAccessor.getProjectManager()
+    ProjectRoleManager projectRoleManager = ComponentAccessor.getComponent(ProjectRoleManager)
+    def userManager = ComponentAccessor.getUserManager()
+    Map<String, String> users = [:]
+ 
+    Project project = projectManager.getProjectByCurrentKey(projectKey)
+    //log.warn(project)
+    def roles = projectRoleManager.getProjectRoles()
+ 
+    roles.each { role ->
+ 
+        def actors = projectRoleManager.getProjectRoleActors(role, project)
+        def usersInRole = actors.getUsers()
+ 
+        usersInRole.each { u ->
+ 
+            def username = u.getUsername().toLowerCase()
+ 
+            if(!users.containsKey(username))
+                users.put(username, role.getName())
+            else
+                users[username] += '; ' + role.getName()
+        }
+   
+    }
+    log.warn(users)
+ 
+    users.each { u ->  
+ 
+        def jiraUser = userManager.getUserByName(u.getKey())
+       
+        if (u.getValue().contains("Administrators") && (jiraUser.getEmailAddress()!="ELCJIRASoftware@estee.com" && jiraUser.getEmailAddress()!="vanton@estee.com" && jiraUser.getEmailAddress()!="kpogrebnyak@estee.com" && jiraUser.getEmailAddress()!="mzemtsova@estee.com" && jiraUser.getEmailAddress()!="amalinin@estee.com" && jiraUser.getEmailAddress()!="nsmykov@ru.estee.com" && jiraUser.getEmailAddress()!="testtest@estee.com" && jiraUser.getEmailAddress()!="manishku@estee.com" && jiraUser.getEmailAddress()!="mmaklako@estee.com" && jiraUser.getEmailAddress()!="agligich@estee.com" && jiraUser.getEmailAddress()!="eepstein@estee.com" && jiraUser.getEmailAddress()!="rwong@estee.com" && jiraUser.getEmailAddress()!="caidan@estee.com" && jiraUser.getEmailAddress()!="maalvare@estee.com" && jiraUser.getEmailAddress()!="ypridybailo@estee.com"))
+            {
+            //log.warn(jiraUser)
+            result.append("[~${jiraUser.getUsername()}]; ")
+            }
+    }
+    return result.toString()
+}
+ 
+//accessors
+def issueManager = ComponentAccessor.issueManager
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+def userManager = ComponentAccessor.getUserManager()
+def userUtil = ComponentAccessor.getUserUtil()
+def userSearchService = ComponentAccessor.getComponent(UserSearchService)
+def applicationAuthorizationService = ComponentAccessor.getComponent(ApplicationAuthorizationService)
+ 
+ 
+//customfields
+def userFullNameCf = customFieldManager.getCustomFieldObjectByName("User Full Name")
+def userIDcf = customFieldManager.getCustomFieldObjectByName('User ID')
+def userEmailcf = customFieldManager.getCustomFieldObjectByName('User Email Address')
+    def autoReplycf = customFieldManager.getCustomFieldObjectByName('Auto Response Jira')
+    def jiraProjectUserCf = customFieldManager.getCustomFieldObjectByName('JIRA Project User')
+final String licensigGroupName = "jira-software-users"
+def licensigGroup = ComponentAccessor.groupManager.getGroup(licensigGroupName)
+assert licensigGroupName : "Could not find group with name $licensigGroupName"
+ 
+String userName = issue.getCustomFieldValue(userEmailcf).trim().toLowerCase()
+String password = ""
+String emailAddress = issue.getCustomFieldValue(userEmailcf).trim().toLowerCase()
+String displayName = issue.getCustomFieldValue(userFullNameCf).trim()
+final boolean sendNotification = false
+    boolean projectAdminsNeeded = false
+    String autoReplyContent = ""
+    String project = issue.getCustomFieldValue(jiraProjectUserCf).toString()
+    log.warn(project)
+    project = project.takeAfter(" ")
+ 
+assert userName: "User name is empty"
+assert emailAddress: "Email is empty"
+assert displayName: "Display Name is empty"
+ 
+String comment = "JIRA: \n\r"
+ 
+/*String correctUserName = emailAddress.substring(0, emailAddress.lastIndexOf("@"))
+if(correctUserName != userName){
+    comment += "Username should be equal to the first part of the email. User will have problems logging in via SSO\n\r"
+    comment += "Correct the username and try again"
+    addComment(comment);
+    return
+}*/
+ 
+ApplicationUser jiraUser = userManager.getUserByName(userName)
+def usersWithEmail = userSearchService.findUsersByEmail(emailAddress)
+ 
+//dublicates check
+//JSR-14446
+if(usersWithEmail.size() > 1)
+{
+    comment += "Several users with the same email address *$emailAddress* were found. Please fix it manually\n\r"
+    addComment(comment);
+    return
+}
+else if(usersWithEmail.size() == 1)
+{
+    if(jiraUser)
+    {
+        if(jiraUser.getUsername() != usersWithEmail[0].getUsername())
+        {
+            comment += "There may be a problem with username duplicates. Please process this request manually\n\r"
+            comment += "User with specified in issue username *$userName* was found. Email address is *${jiraUser.getEmailAddress()}*\n\r"
+            comment += "User with specified in issue emailaddress *$emailAddress* was found. Username is *${usersWithEmail[0].getUsername()}*\n\r"
+            addComment(comment);
+            return
+        }
+    }
+    else
+    {
+        comment += "There may be a problem with username duplicates. Please process this request manually\n\r"
+        comment += "User with emailAddress *$emailAddress* was found. Username *${usersWithEmail[0].getUsername()}* differs from the specified in issue *$userName*\n\r"
+        addComment(comment);
+        return
+    }
+}
+else
+{
+    if(jiraUser)
+    {
+        comment += "There may be a problem with user duplication. Please process this request manually.\n\r"
+        comment += "User with username *$userName* was found. User email *${jiraUser.getEmailAddress()}* differs from the specified in issue *$emailAddress*\n\r"
+        addComment(comment);
+        return
+    }
+}
+ 
+comment += "Current licensed users count: " + applicationAuthorizationService.getUserCount(ApplicationKeys.SOFTWARE) + "\n\r"
+ 
+if(jiraUser)
+{
+    if ((jiraUser.active) && (applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE)))
+        {
+            comment += "User *$userName* is active and has software license. Nothing to do.\n\r"
+            autoReplyContent += "Your Jira account already exists and is active. Please let us know if there's an access issue.\n\r"
+        }
+    if(!jiraUser.active)
+        {
+            activateDeactivateUser(jiraUser, true)
+            comment += "User *$userName* has been reactivated.\n\r"
+            autoReplyContent += "Your Jira account has been reactivated.\n\r"
+            autoReplyContent += "URL of the Jira: https://jira.elcompanies.net\n\r"
+            if (projectAdminsNeeded == false) autoReplyContent += "For a specific project access please contact its administrators.\n\r"
+        }
+    if(!applicationAuthorizationService.canUseApplication(jiraUser, ApplicationKeys.SOFTWARE))
+        {
+            userUtil.addUserToGroup(licensigGroup, jiraUser)
+            comment += "User *$userName* has been added to lisensing group\n\r"
+            autoReplyContent += "Your Jira account has been reactivated.\n\r"
+            autoReplyContent += "URL of the Jira: https://jira.elcompanies.net\n\r"
+            if (projectAdminsNeeded == false) autoReplyContent += "For a specific project access please contact its administrators.\n\r"
+        }
+ 
+}
+else
+{
+    CreateUser(userName, password, emailAddress, displayName, sendNotification)
+    comment += "User *$userName* has been created\n\r"
+    autoReplyContent += "Your ELC Jira account has been created.\n\r"
+    autoReplyContent += "URL of the Jira: https://jira.elcompanies.net\n\r"
+    autoReplyContent += "For a specific project access please contact its administrators.\n\r"
+    projectAdminsNeeded = true
+}
+ 
+addComment(comment)
+ 
+if (autoReplyContent!="")
+{
+    if  (projectAdminsNeeded == true && project)
+    {
+        autoReplyContent += "The admin(s) of the project $project, who can grant you a project role and thus permissions for it: "+getAdminsOfProject(project)+"\n\r"
+    }
+    issue.update
+        {
+        setCustomFieldValue("Auto Response Jira", autoReplyContent)
+        }
+}
