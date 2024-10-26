@@ -1,0 +1,29 @@
+import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.permission.PermissionSchemeManager;
+import com.atlassian.jira.scheme.SchemeManager;
+import com.atlassian.jira.scheme.Scheme;
+ 
+//Put project keys here
+[
+'CNITS',
+'NCO',
+'P3698',
+'DISWS',
+'RDSREG'
+    // add more if required
+].each { projectKey ->
+    def proj = ComponentAccessor.getProjectManager().getProjectByCurrentKey(projectKey)
+    if (!proj) {
+        log.warn "No such project ${projectKey}"
+    }
+    else {
+        PermissionSchemeManager permissionSchemeManager = ComponentAccessor.getPermissionSchemeManager();
+        //Put Permission Scheme ID here:
+        Scheme permissionScheme = permissionSchemeManager.getSchemeObject(10402);
+        //log.warn(permissionScheme)
+        //First action - current permission scheme is removed from the project
+        permissionSchemeManager.removeSchemesFromProject(proj);
+        //Second action - a selected permissions scheme is assigned to the project
+        permissionSchemeManager.addSchemeToProject(proj, permissionScheme);
+        }
+    }
