@@ -1,0 +1,19 @@
+import com.atlassian.jira.component.ComponentAccessor
+ 
+def customFieldManager = ComponentAccessor.getCustomFieldManager()
+//customfields
+def userFullNameCf = customFieldManager.getCustomFieldObjectByName("User Full Name")
+ 
+String fullName = issue.getCustomFieldValue(userFullNameCf).toString()
+ 
+if (!fullName.contains(", ")) {
+    int ind = fullName.indexOf(" ")
+    log.warn(ind)
+    String firstName=fullName.take(ind)
+    log.warn(firstName)
+    String newFullName = fullName.takeAfter(" ") + ", " + firstName
+    log.warn(newFullName)
+    issue.update {
+        setCustomFieldValue("User Full Name", newFullName)
+    }
+}
