@@ -1,0 +1,18 @@
+
+import com.atlassian.jira.component.ComponentAccessor
+ 
+StringBuilder result = new StringBuilder()
+result.append("<table><th>Project name</th>")
+ 
+['BPP',
+'DF',
+'ELX4'].each {projectKey ->
+ 
+def projectManager = ComponentAccessor.getProjectManager()
+ 
+def project = projectManager.getProjectByCurrentKey(projectKey)
+result.append("<tr><td>${project.getName()}</td><td>")
+ 
+}
+result.append("</table>")
+return result
