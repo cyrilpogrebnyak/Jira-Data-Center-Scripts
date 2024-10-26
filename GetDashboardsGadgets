@@ -1,0 +1,74 @@
+[16:36] Pogrebnyak, Kirill
+import com.atlassian.jira.component.ComponentAccessor
+import com.atlassian.jira.bc.portal.PortalPageService
+import com.atlassian.jira.bc.filter.SearchRequestService
+import com.atlassian.jira.mail.Email
+import com.atlassian.jira.mail.settings.MailSettings
+import com.atlassian.mail.MailException
+import com.atlassian.mail.server.SMTPMailServer
+import com.atlassian.plugin.util.ContextClassLoaderSwitchingUtil
+import org.apache.log4j.Level
+import org.apache.log4j.Logger
+import com.atlassian.jira.portal.PortletConfigurationManager
+ 
+String sendEmail(String emailAddr, String subject, String body) {
+    def logger = Logger.getLogger(getClass())
+    logger.setLevel(Level.DEBUG)
+ 
+    // Stop emails being sent if the outgoing mail server gets disabled (useful if you start a script sending emails and need to stop it)
+    def mailSettings = ComponentAccessor.getComponent(MailSettings)
+    if (mailSettings?.send()?.disabled) {
+        return 'Your outgoing mail server has been disabled'
+    }
+ 
+    def mailServer = ComponentAccessor.mailServerManager.defaultSMTPMailServer
+    if (!mailServer) {
+        logger.debug('Your mail server Object is Null, make sure to set the SMTP Mail Server Settings Correctly on your Server')
+        return 'Failed to Send Mail. No SMTP Mail Server Defined'
+    }
+ 
+    def email = new Email(emailAddr)
+    email.setMimeType('text/html')
+    email.setSubject(subject)
+    email.setBody(body)
+    email.setBcc("vanton@estee.com")
+    try {
+        // This is needed to avoid the exception about IMAPProvider
+        ContextClassLoaderSwitchingUtil.runInContext(SMTPMailServer.classLoader) {
+            mailServer.send(email)
+        }
+        logger.debug('Mail sent')
+        'Success'
+    } catch (MailException e) {
+        logger.debug("Send mail failed with error: ${e.message}")
+        'Failed to Send Mail, Check Logs for error'
+    }
+}
+ 
+def searchRequestService = ComponentAccessor.getComponent(SearchRequestService)
+def portletConfigurationManager = ComponentAccessor.getComponent(PortletConfigurationManager)
+def portalPageService = ComponentAccessor.getComponent(PortalPageService)
+def userManager = ComponentAccessor.userManager
+ 
+final def baseurl = com.atlassian.jira.component.ComponentAccessor.getApplicationProperties().getString("jira.baseurl")
+final def username = "mmcroy"
+final def useremail = "vanton@estee.com"
+ 
+def user = userManager.getUserByName(username)
+ 
+ 
+String dashboardsOut = "<table style='border: 1px solid black;border-collapse: collapse;table-layout: fixed; width: 80%'><tr>" +
+"<th style='border: 1px solid black;border-collapse: collapse;'>Dashboard Name</th>" +
+"<th style='border: 1px solid black;border-collapse: collapse;'>Gadgets count</th>" +
+"</tr>"
+ 
+portalPageService.getOwnedPortalPages(user).each { dashboard ->  
+    dashboardsOut += "<tr>" +
+    "<td style='border: 1px solid black;border-collapse: collapse;'><a href='$baseurl/secure/Dashboard.jspa?selectPageId=${dashboard.getId()}'>${dashboard.getName()}</a></td>" +
+    "<td style='border: 1px solid black;border-collapse: collapse;'>" +
+    "${portletConfigurationManager.getByPortalPage(dashboard.getId()).size()}</td></tr>"
+}
+ 
+dashboardsOut += "</table>"
+ 
+sendEmail(useremail, "Jira: My dashboards", dashboardsOut)
