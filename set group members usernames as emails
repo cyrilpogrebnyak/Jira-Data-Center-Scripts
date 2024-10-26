@@ -1,0 +1,36 @@
+
+import com.atlassian.jira.user.ApplicationUser
+import com.atlassian.jira.bc.user.ApplicationUserBuilderImpl
+import com.atlassian.jira.component.ComponentAccessor
+ 
+def groupManager = ComponentAccessor.getGroupManager()
+def userManager = ComponentAccessor.getUserManager()
+ 
+def usersInGroup1 = groupManager.getUsersInGroup("jira-software-users")
+//log.warn(usersInGroup1)
+ 
+Collection<ApplicationUser> Group1 = usersInGroup1
+ 
+Group1.each { userE ->
+    //check that email is present
+    if (userE.getEmailAddress()) {
+        def email=userE.getEmailAddress().toString()
+       
+        //check if user is active, to deal with active ones first
+        if (userE.active==true)
+        {
+            //check if the email address is correct
+            if (email.contains("@"))
+            {
+                if (email.indexOf("@")!=0)
+                {
+                String possibleUsername = email.take(email.indexOf("@"))
+                //check if the user is not a service user - they usually have a very different from their email username
+                    if (possibleUsername.toLowerCase()==userE.getUsername().toLowerCase()) {
+                        //check if username is not already the same as email
+                        if (userE.getUsername().toLowerCase()!=userE.getEmailAddress().toLowerCase()) {
+                            def nName = new ApplicationUserBuilderImpl(userE).name(email.toLowerCase()).build()
+                            userManager.updateUser(nName) } } } } }
+    }
+}
+доступно контекстное меню
